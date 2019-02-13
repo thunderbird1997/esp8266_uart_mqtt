@@ -1,0 +1,6 @@
+*.o
+build/
+sdkConfig
+sdkConfig.old
+.vscode
+
