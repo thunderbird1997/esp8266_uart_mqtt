@@ -82,6 +82,9 @@ static EventGroupHandle_t wifi_event_group;
 
 /*---------------------------------*/
 
+/* mqtt 客户端任务句柄 */
+static TaskHandle_t mqtt_client_task_handle;
+
 /* UART消息队列 */
 static QueueHandle_t uart_queue;
 
@@ -238,10 +241,17 @@ uart_mqtt_msg_t uart_mqtt_deserialize_data(unsigned char* buf)
 static char* mqtt_sub_topic_list[MQTT_SUBSCRIBE_TOPIC_MAX];
 
 /* 在话题列表中添加对应的话题，并返回对应的指针 */
-static char* mqtt_sub_topic_add(const char* topic)
+static int mqtt_sub_topic_add(int len, const char* topic)
 {
     int i;
     
+    /* 已经有该话题，返回错误 */
+    for(i=0; i<MQTT_SUBSCRIBE_TOPIC_MAX; i++)
+    {
+        if(mqtt_sub_topic_list[i] != NULL && strncmp(mqtt_sub_topic_list[i],topic,len) == 0)
+            return -1;
+    }
+
     /* 寻找空位 */
     for(i=0; i<MQTT_SUBSCRIBE_TOPIC_MAX; i++)
     {
@@ -249,39 +259,62 @@ static char* mqtt_sub_topic_add(const char* topic)
             break;
     }
 
-    /* 话题列表已满，返回空指针 */
-    if(i == MQTT_SUBSCRIBE_TOPIC_MAX) return NULL;
+    ESP_LOGI("mqtt_sub_topic_add","i=%d",i);
+
+    /* 话题列表已满，返回错误 */
+    if(i == MQTT_SUBSCRIBE_TOPIC_MAX) return -2;
 
     /* 保存话题 */
-    int len = strlen(topic);
     mqtt_sub_topic_list[i] = malloc(len);
     os_memcpy(mqtt_sub_topic_list[i], topic, len);
     
-    /* 返回指针 */
-    return mqtt_sub_topic_list[i];
+    /* 返回成功 */
+    return 0;
 }
 
 /* 在话题列表中删除对应的话题 */
-static int mqtt_sub_topic_delete(const char* topic)
+static int mqtt_sub_topic_delete(int len, const char* topic)
 {
     int i;
 
     /* 寻找对应的话题 */
     for(i=0; i<MQTT_SUBSCRIBE_TOPIC_MAX; i++)
     {
-        if(mqtt_sub_topic_list[i] != NULL && strcmp(mqtt_sub_topic_list[i],topic) == 0)
+        if(mqtt_sub_topic_list[i] != NULL && strncmp(mqtt_sub_topic_list[i],topic,len) == 0)
             break;
     }
 
-    /* 没有该话题，返回 */
+    /* 没有该话题，返回错误 */
     if(i == MQTT_SUBSCRIBE_TOPIC_MAX) return -1;
 
     /* 删除话题 */
     free(mqtt_sub_topic_list[i]);
     mqtt_sub_topic_list[i] = NULL;
     
+    /* 返回成功 */
     return 0;
 }
+
+/* 在话题列表中获取对应的话题指针 */
+static char* mqtt_sub_topic_get(int len, const char* topic)
+{
+    int i;
+
+    /* 寻找对应的话题 */
+    for(i=0; i<MQTT_SUBSCRIBE_TOPIC_MAX; i++)
+    {
+        if(mqtt_sub_topic_list[i] != NULL && strncmp(mqtt_sub_topic_list[i],topic,len) == 0)
+            break;
+    }
+
+    ESP_LOGI("mqtt_sub_topic_get","i=%d",i);
+
+    /* 没有该话题，返回空指针 */
+    if(i == MQTT_SUBSCRIBE_TOPIC_MAX) return NULL;
+    else return mqtt_sub_topic_list[i];
+
+}
+
 
 /* uart_mqtt 返回消息 */
 static void uart_mqtt_return(const char* errType, const char* reason)
@@ -433,9 +466,12 @@ static void mqtt_client_task(void *pvParameters)
     #endif
 
         uart_mqtt_return(ERR_TYPE_SUCCESS,"mqtt connection success");
+        
+        /* 清空返回值 */
+        rc = 0;
 
         for (;;) {
-            
+
             /* 有新的发布/订阅事件 */
             if(xQueueReceive(mqtt_publish_subscribe_queue,(void *)&msg,(portTickType)portMAX_DELAY))
             {
@@ -465,27 +501,43 @@ static void mqtt_client_task(void *pvParameters)
                     {
                         char *tmp;
 
-                        /* 保存话题名称到话题列表 */
-                        tmp = mqtt_sub_topic_add((char *)msg.msg_topic);
-                        ESP_LOGI(DEBUG_TAG, "add to mqtt_sub_topic_list ok!\r\ncopied topic name is %s",tmp);
+                        ESP_LOGI(DEBUG_TAG,"msg topic len:%d\r\nmsg topic:%s",msg.msg_topic_len,msg.msg_topic);
 
-                        if(tmp == NULL)
+                        /* 保存话题名称到话题列表 */
+                        rc = mqtt_sub_topic_add(msg.msg_topic_len,(char *)msg.msg_topic);
+                        if(rc != 0)
                         {
-                            ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic number reached MAX");
-                            uart_mqtt_return(ERR_TYPE_MQTT,"mqtt subscribe topic number reached MAX");
+                            if(rc == -1)    /* 已经订阅该话题 */
+                            {
+                                ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic already exist");
+                                uart_mqtt_return(ERR_TYPE_MQTT,"mqtt subscribe topic already exist");
+                            }
+                            else if(rc == -2)   /* 订阅话题数达到上限 */
+                            {
+                                ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic number reached max");
+                                uart_mqtt_return(ERR_TYPE_MQTT,"mqtt subscribe topic number reached max");
+                            }
                         }
                         else
-                        {              
-                            /* 订阅话题 */
-                            if ((rc = MQTTSubscribe(&client, tmp, 0, on_mqtt_sub_msg_received)) != 0) 
-                            {
-                                ESP_LOGE(DEBUG_TAG, "Return code from MQTT subscribe is %d", rc);
-                                uart_mqtt_return(ERR_TYPE_MQTT,"mqtt subscribe fail");
-                            }
-                            else
-                            {
-                                ESP_LOGI(DEBUG_TAG, "Subscribe OK!");
-                                uart_mqtt_return(ERR_TYPE_SUCCESS,"mqtt subscribe success");
+                        {
+                            /* 获取保存的话题名称 */
+                            tmp = mqtt_sub_topic_get(msg.msg_topic_len,(char *)msg.msg_topic);
+
+                            ESP_LOGI(DEBUG_TAG, "add to mqtt_sub_topic_list ok!\r\ncopied topic:%s",tmp);
+
+                            if(tmp != NULL)
+                            {            
+                                /* 订阅话题 */
+                                if ((rc = MQTTSubscribe(&client, tmp, 0, on_mqtt_sub_msg_received)) != 0) 
+                                {
+                                    ESP_LOGE(DEBUG_TAG, "Return code from MQTT subscribe is %d", rc);
+                                    uart_mqtt_return(ERR_TYPE_MQTT,"mqtt subscribe fail");
+                                }
+                                else
+                                {
+                                    ESP_LOGI(DEBUG_TAG, "Subscribe OK!");
+                                    uart_mqtt_return(ERR_TYPE_SUCCESS,"mqtt subscribe success");
+                                }
                             }
                         }
                     }  
@@ -494,10 +546,11 @@ static void mqtt_client_task(void *pvParameters)
                     default:
                         break;
                 }
-
+                ESP_LOGI(DEBUG_TAG, "rc=%d",rc);
                 /* 返回值不为0,中断循环 */
                 if(rc != 0) 
                 {
+
                     break;
                 }
             }
@@ -620,8 +673,15 @@ static void uart_mqtt_parse_task(void *pvParameters)
 
                     ESP_LOGI(DEBUG_TAG,"Start Connect Server,ip=%s,port=%d",server.server_ip,server.server_port);
 
-                    xTaskCreate(mqtt_client_task,"mqtt_client_task", 4096, (void *)&server, 8, NULL);   /* 创建mqtt客户端任务 */
-
+                    if(mqtt_client_task_handle == NULL)
+                    {
+                        xTaskCreate(mqtt_client_task,"mqtt_client_task", 4096, (void *)&server, 8, &mqtt_client_task_handle);   /* 创建mqtt客户端任务 */
+                    }
+                    else
+                    {
+                        ESP_LOGW(DEBUG_TAG,"mqtt_client_task already started");
+                        uart_mqtt_return(ERR_TYPE_MQTT,"client already started");
+                    }
                     break;
 
                 case MSG_TYPE_PUBLISH:  /* 发布消息 */
