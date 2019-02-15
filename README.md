@@ -89,6 +89,7 @@ uart_mqtt»á¶ÔËÍÈëµÄÏûÏ¢½øÐÐÓÐÐ§ÐÔÐ£Ñé£¬Èç¹ûÏûÏ¢²»·ûºÏ¹æ·¶»òÕßÐ£ÑéÊ§°Ü£¬½«·µ»Ø²Ù×
 
 ### 4. ·¢²¼ÏûÏ¢
 Í¨¹ý´®¿Ú·¢ËÍÒ»¸ö¡°·¢²¼ÏûÏ¢¡±ÏûÏ¢£¬¿ÉÒÔÈÃuart_mqttÔÚÖ¸¶¨»°ÌâÉÏ·¢²¼Ö¸¶¨µÄÏûÏ¢¡£·µ»ØÖµÈçÏÂ£º
+
 | ½á¹û | ÏûÏ¢ÀàÐÍ | »°Ìâ×Ö·û´®ÄÚÈÝ | ÏûÏ¢×Ö·û´®ÄÚÈÝ |
 | ----- | ----- | ----- | ----- | 
 | ·¢²¼³É¹¦ | ²Ù×÷³É¹¦ | "success" | "mqtt publish success" |
@@ -96,6 +97,7 @@ uart_mqtt»á¶ÔËÍÈëµÄÏûÏ¢½øÐÐÓÐÐ§ÐÔÐ£Ñé£¬Èç¹ûÏûÏ¢²»·ûºÏ¹æ·¶»òÕßÐ£ÑéÊ§°Ü£¬½«·µ»Ø²Ù×
 
 ### 5. ¶©ÔÄ»°Ìâ
 Í¨¹ý´®¿Ú·¢ËÍÒ»¸ö¡°¶©ÔÄ»°Ìâ¡±ÏûÏ¢£¬¿ÉÒÔÈÃuart_mqtt¶©ÔÄÖ¸¶¨µÄ»°Ìâ¡£ÓÉÓÚÄÚ´æµÄÏÞÖÆ£¬uart_mqtt×î´óÖ§³Ö¶©ÔÄ16¸ö»°Ìâ£¬»ù±¾¿ÉÒÔÂú×ã´ó¶àÊýÓ¦ÓÃ³¡¾°µÄÐèÇó¡£·µ»ØÖµÈçÏÂ£º
+
 | ½á¹û | ÏûÏ¢ÀàÐÍ | »°Ìâ×Ö·û´®ÄÚÈÝ | ÏûÏ¢×Ö·û´®ÄÚÈÝ |
 | ----- | ----- | ----- | ----- | 
 | ¶©ÔÄ³É¹¦ | ²Ù×÷³É¹¦ | "success" | "mqtt subscribe success" |
@@ -105,6 +107,7 @@ uart_mqtt»á¶ÔËÍÈëµÄÏûÏ¢½øÐÐÓÐÐ§ÐÔÐ£Ñé£¬Èç¹ûÏûÏ¢²»·ûºÏ¹æ·¶»òÕßÐ£ÑéÊ§°Ü£¬½«·µ»Ø²Ù×
 
 ### 5. È¡Ïû¶©ÔÄ»°Ìâ
 Í¨¹ý´®¿Ú·¢ËÍÒ»¸ö¡°È¡Ïû¶©ÔÄ»°Ìâ¡±ÏûÏ¢£¬¿ÉÒÔÈÃuart_mqttÈ¡Ïû¶©ÔÄÖ¸¶¨µÄ»°Ìâ¡£·µ»ØÖµÈçÏÂ£º
+
 | ½á¹û | ÏûÏ¢ÀàÐÍ | »°Ìâ×Ö·û´®ÄÚÈÝ | ÏûÏ¢×Ö·û´®ÄÚÈÝ |
 | ----- | ----- | ----- | ----- | 
 | È¡Ïû¶©ÔÄ³É¹¦ | ²Ù×÷³É¹¦ | "success" | "mqtt unsubscribe success" |
