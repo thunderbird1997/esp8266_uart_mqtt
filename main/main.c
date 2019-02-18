@@ -125,6 +125,28 @@ static QueueHandle_t mqtt_publish_subscribe_queue;
 #define ERR_TYPE_WIFI      "wifi_err"
 #define ERR_TYPE_MQTT      "mqtt_err"
 
+/* 返回消息字符串 */
+#define ERR_MSG_CLIENT_STARTED             "cli started"
+#define ERR_MSG_INIT                       "init err"
+#define ERR_MSG_MEM                        "mem err"
+#define ERR_MSG_SERVER_CONN                "serv err"
+#define ERR_MSG_TASK                       "task err"
+#define SUC_MSG_SERVER_CONN                "serv suc"
+#define ERR_MSG_MQTT_PUBLISH               "pub err"
+#define SUC_MSG_MQTT_PUBLISH               "pub suc"
+#define ERR_MSG_MQTT_SUBSCRIBE_EXIST       "sub exist"
+#define ERR_MSG_MQTT_SUBSCRIBE_MAX         "sub max"
+#define ERR_MSG_MQTT_SUBSCRIBE             "sub err"
+#define SUC_MSG_MQTT_SUBSCRIBE             "sub suc"
+#define ERR_MSG_MQTT_UNSUBSCRIBE_NOT_EXIST "unsub exist"
+#define ERR_MSG_MQTT_UNSUBSCRIBE           "unsub err"
+#define SUC_MSG_MQTT_UNSUBSCRIBE           "unsub suc"
+#define ERR_MSG_WIFI                       "wifi err"
+#define SUC_MSG_WIFI                       "wifi suc"
+#define ERR_MSG_UART_BAD_DATA              "bad data"
+#define ERR_MSG_UART_NO_MSG_TYPE           "type err"
+
+
 //*----------- uart_mqtt 串口指令数据结构 -------------*/
 //
 // 第1个字节：StartFrame(起始帧) = 0xFA
@@ -324,8 +346,6 @@ static int mqtt_sub_topic_add(int len, const char* topic)
             break;
     }
 
-    ESP_LOGI("mqtt_sub_topic_add","i=%d",i);
-
     /* 话题列表已满，返回错误 */
     if(i == MQTT_SUBSCRIBE_TOPIC_MAX) return -2;
 
@@ -486,7 +506,7 @@ static void mqtt_client_task(void *pvParameters)
     /* 初始化 mqtt 客户端 */
     if (MQTTClientInit(&client, &network, 0, NULL, 0, NULL, 0) == false) {
         ESP_LOGE(DEBUG_TAG, "mqtt init err");
-        uart_mqtt_return(0,ERR_TYPE_MQTT,"init error");
+        uart_mqtt_return(0, ERR_TYPE_MQTT, ERR_MSG_INIT);
         vTaskDelete(NULL);
     }
 
@@ -496,7 +516,7 @@ static void mqtt_client_task(void *pvParameters)
     /* 初始化缓冲区空间 */
     if (!payload) {
         ESP_LOGE(DEBUG_TAG, "mqtt malloc err");
-        uart_mqtt_return(0,ERR_TYPE_MQTT,"malloc error");
+        uart_mqtt_return(0, ERR_TYPE_MQTT, ERR_MSG_MEM);
     } else {
         memset(payload, 0x0, MQTT_PAYLOAD_BUFFER);
     }
@@ -508,7 +528,7 @@ static void mqtt_client_task(void *pvParameters)
         /* 建立与服务器的连接 */
         if ((rc = NetworkConnect(&network, mqtt_server_param->server_ip, mqtt_server_param->server_port)) != 0) {
             ESP_LOGE(DEBUG_TAG, "Return code from network connect is %d", rc);
-            uart_mqtt_return(0,ERR_TYPE_MQTT,"server connection error");
+            uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_SERVER_CONN);
             continue;
         }
 
@@ -528,7 +548,7 @@ static void mqtt_client_task(void *pvParameters)
         /* 客户端连接服务器 */
         if ((rc = MQTTConnect(&client, &connectData)) != 0) {
             ESP_LOGE(DEBUG_TAG, "Return code from MQTT connect is %d", rc);
-            uart_mqtt_return(0,ERR_TYPE_MQTT,"server connection error");
+            uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_SERVER_CONN);
             network.disconnect(&network);
             continue;
         }
@@ -539,13 +559,13 @@ static void mqtt_client_task(void *pvParameters)
         /* 启动 MQTT 后台进程 */
         if ((rc = MQTTStartTask(&client)) != pdPASS) {
             ESP_LOGE(DEBUG_TAG, "Return code from start tasks is %d", rc);
-            uart_mqtt_return(0,ERR_TYPE_MQTT,"task start error");
+            uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_TASK);
         } else {
             ESP_LOGI(DEBUG_TAG, "Use MQTTStartTask");
         }
     #endif
 
-        uart_mqtt_return(1,ERR_TYPE_SUCCESS,"mqtt connection success");
+        uart_mqtt_return(1,ERR_TYPE_SUCCESS,SUC_MSG_SERVER_CONN);
         
         /* 清空返回值 */
         rc = 0;
@@ -569,10 +589,10 @@ static void mqtt_client_task(void *pvParameters)
 
                         if ((rc = MQTTPublish(&client, (char *)msg.msg_topic, &message)) != 0) {
                             ESP_LOGE(DEBUG_TAG, "Return code from MQTT publish is %d", rc);
-                            uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt publish fail");
+                            uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_PUBLISH);
                         } else {
                             ESP_LOGI(DEBUG_TAG, "Publish OK!");
-                            uart_mqtt_return(1,ERR_TYPE_SUCCESS,"mqtt publish success");
+                            uart_mqtt_return(1,ERR_TYPE_SUCCESS,SUC_MSG_MQTT_PUBLISH);
                         }
                     }
                     break;
@@ -588,12 +608,12 @@ static void mqtt_client_task(void *pvParameters)
                             if(rc == -1)    /* 已经订阅该话题 */
                             {
                                 ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic already exist");
-                                uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt subscribe topic already exist");
+                                uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_SUBSCRIBE_EXIST);
                             }
                             else if(rc == -2)   /* 订阅话题数达到上限 */
                             {
                                 ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic number reached max");
-                                uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt subscribe topic number reached max");
+                                uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_SUBSCRIBE_MAX);
                             }
                             /* 非致命网络错误，重置错误标志 */
                             rc = 0;
@@ -610,12 +630,12 @@ static void mqtt_client_task(void *pvParameters)
                                 {
                                     mqtt_sub_topic_delete(msg.msg_topic_len,(char *)msg.msg_topic); /* 删除话题列表中对应的话题 */
                                     ESP_LOGE(DEBUG_TAG, "Return code from MQTT subscribe is %d", rc);
-                                    uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt subscribe fail");
+                                    uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_SUBSCRIBE);
                                 }
                                 else
                                 {
                                     ESP_LOGI(DEBUG_TAG, "Subscribe OK!");
-                                    uart_mqtt_return(1,ERR_TYPE_SUCCESS,"mqtt subscribe success");
+                                    uart_mqtt_return(1,ERR_TYPE_SUCCESS,SUC_MSG_MQTT_SUBSCRIBE);
                                 }
                             }
                         }
@@ -631,7 +651,7 @@ static void mqtt_client_task(void *pvParameters)
                             if(rc == -1)    /* 不存在该话题 */
                             {
                                 ESP_LOGE(DEBUG_TAG, "mqtt subscribe topic doesn't exist");
-                                uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt subscribe topic doesn't exist");
+                                uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_UNSUBSCRIBE_NOT_EXIST);
                             }
                             /* 非致命网络错误，重置错误标志 */
                             rc = 0;
@@ -642,12 +662,12 @@ static void mqtt_client_task(void *pvParameters)
                             if ((rc = MQTTUnsubscribe(&client, (char *)msg.msg_topic)) != 0) 
                             {
                                 ESP_LOGE(DEBUG_TAG, "Return code from MQTT unsubscribe is %d", rc);
-                                uart_mqtt_return(0,ERR_TYPE_MQTT,"mqtt unsubscribe fail");
+                                uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MQTT_UNSUBSCRIBE);
                             }
                             else
                             {
                                 ESP_LOGI(DEBUG_TAG, "Unsubscribe OK!");
-                                uart_mqtt_return(1,ERR_TYPE_SUCCESS,"mqtt unsubscribe success");
+                                uart_mqtt_return(1,ERR_TYPE_SUCCESS,SUC_MSG_MQTT_UNSUBSCRIBE);
                             }
                         }
                     }
@@ -688,7 +708,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             xEventGroupSetBits(wifi_event_group,CONNECTED_BIT); /* 标志已连接 */
 
             ESP_LOGI(DEBUG_TAG, "wifi got ip");
-            uart_mqtt_return(1,ERR_TYPE_SUCCESS,"wifi got ip");
+            uart_mqtt_return(1,ERR_TYPE_SUCCESS,SUC_MSG_WIFI);
 
             break;
 
@@ -697,7 +717,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             xEventGroupClearBits(wifi_event_group,CONNECTED_BIT); /* 标志失去连接 */
 
             ESP_LOGE(DEBUG_TAG, "wifi lost connection");
-            uart_mqtt_return(0,ERR_TYPE_WIFI,"wifi lost connection");
+            uart_mqtt_return(0,ERR_TYPE_WIFI,ERR_MSG_WIFI);
 
             break;
 
@@ -763,8 +783,8 @@ static void uart_mqtt_parse_task(void *pvParameters)
             /* 检查数据完整性标志 */
             if(msg.data_integrity_flag==0)
             {
-                ESP_LOGW(DEBUG_TAG,"broken data");
-                uart_mqtt_return(0,ERR_TYPE_UART,"broken data");
+                ESP_LOGW(DEBUG_TAG,"bad data");
+                uart_mqtt_return(0,ERR_TYPE_UART,ERR_MSG_UART_BAD_DATA);
                 continue;
             }
 
@@ -797,13 +817,13 @@ static void uart_mqtt_parse_task(void *pvParameters)
                             ) != pdPASS)
                         {
                             ESP_LOGE(DEBUG_TAG,"FAILED Creating mqtt client task!");
-                            uart_mqtt_return(0,ERR_TYPE_MQTT,"client can't start, heap maybe full");
+                            uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_MEM);
                         }   
                     }
                     else
                     {
                         ESP_LOGW(DEBUG_TAG,"mqtt_client_task already started");
-                        uart_mqtt_return(0,ERR_TYPE_MQTT,"client already started");
+                        uart_mqtt_return(0,ERR_TYPE_MQTT,ERR_MSG_CLIENT_STARTED);
                     }
                     break;
 
@@ -830,7 +850,7 @@ static void uart_mqtt_parse_task(void *pvParameters)
 
                 default:
                     ESP_LOGW(DEBUG_TAG,"no such message type");
-                    uart_mqtt_return(0,ERR_TYPE_UART,"no such message type");
+                    uart_mqtt_return(0,ERR_TYPE_UART,ERR_MSG_UART_NO_MSG_TYPE);
                     break;
             }
         }
