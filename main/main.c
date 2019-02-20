@@ -1019,6 +1019,9 @@ void app_main()
     /* 启动 uart_mqtt 序列化进程 */
     xTaskCreate(uart_mqtt_serialize_task, "serialize_task", 4096, NULL, 8, NULL);
 
+    /* 启动延时 500ms */
+    vTaskDelay(500 / portTICK_RATE_MS);
+
     /* 发送准备完成消息 */
     uart_mqtt_msg_t msg;
 
