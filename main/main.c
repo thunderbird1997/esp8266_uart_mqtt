@@ -25,7 +25,7 @@
 
 #include "MQTTClient.h"
 
-//*----- UART MQTT Firmware Ver 0.1 beta -----*/
+//*----- UART MQTT Firmware Ver 0.1 ----*/
 //
 // author: James Huang 
 // copyright: James Huang 
@@ -35,7 +35,7 @@
 
 //*--------- UART MQTT 通信说明 ---------*/
 //
-// Ver 0.1 beta
+// Ver 0.1
 // 1. 由于ESP8266 RTOS SDK 串口底层的原因，无法发送字符串的结束符('\0'=>0x00),
 //    而uart_mqtt部分命令需要字符串带有结束符,因此临时规定:当发送消息到esp8266时,
 //    均需要发送字符串结束符。uart_mqtt返回的所有命令均不带字符串结束符。此问题计划
@@ -52,7 +52,7 @@
 #define DEBUG_TAG "UART_MQTT"
 
 #define UART_NUM                 UART_NUM_0
-#define UART_BAUD_RATE           74880
+#define UART_BAUD_RATE           9600
 #define UART_RD_BUF_SIZE         2048
 
 #define MQTT_VERSION             4
