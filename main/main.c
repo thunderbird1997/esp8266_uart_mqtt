@@ -52,7 +52,7 @@
 #define DEBUG_TAG "UART_MQTT"
 
 #define UART_NUM                 UART_NUM_0
-#define UART_BAUD_RATE           9600
+#define UART_BAUD_RATE           4800
 #define UART_RD_BUF_SIZE         2048
 
 #define MQTT_VERSION             4
